@@ -1,0 +1,118 @@
+- Tick pause while empty `pause-when-empty-seconds` in `server.properties`
+- Tick tick manager (/tick command effects) `TickManager.step()`
+- Tick Worlds `MinecraftServer.tickWorlds()`
+  - Ticks command function manager
+  - For each world
+    - Send time packets
+    - Tick world
+      - If not frozen
+        - Tick worldborder
+        - Tick weather
+      - Sleeping ticks
+      - Calculate thunder/rain darkness
+      - If not frozen
+        - Tick daylight cycle
+        - If not debug world
+          - Tick scheduled block ticks
+          - Tick scheduled fluid ticks
+        - Tick raids
+        - Tick ChunkManager
+          - If not frozen
+            - Remove expired tickets
+          - Update chunks
+            - Update TicketManager
+            - Update ChunkLoadingManager
+            - ChunkloadingManager update chunks
+          - Tick Chunks
+            - If not debug world
+              - If not frozen
+                - Add chunks to ticking chunk list
+                - Randomize chunk tick list (what the fuck???)
+                - Tick chunks in list
+                  - Tick mob spawning
+                  - Tick inhabited time (contributes to local difficulty)
+                  - Tick thunder & skeleton trap spawning
+                  - Tick ice and snow
+                  - Tick random block tocl
+                - Tick "special" mob spawning (i.e. Cats, Pillager Patrols, Phantoms, Wandering Traders & Zombie Sieges)
+            - Broadcast Chunk Updates
+              - Send light updates to players
+              - Send block changes to players
+              - Send block entity changes to players
+          - Tick Entity Trackers
+            - Update Entity Tracker status
+            - Send entity passengers
+            - Send map marker updates for item frames holding map
+            - Send entity rotation & position
+            - Send entity velocity data if constant velocity update entity
+            - Sync misc entity data
+            - Set head position
+            - Send velocity if modified
+          - Tick chunk loading manager
+            - Tick POI storage
+            - Unload chunks (async) and save them
+            - Initialized the chunk caches
+        - Handle syncedBlockEvents
+        - Check idle timeout (Stops entity ticking if there aren't any players in dimension for 15 seconds)
+        - If not idle:
+          - Tick dragon fight
+          - For each entity:
+            - If should be affected by /tick freeze & tick freeze enabled
+              - Check despawn (mob out of range/peaceful mode style despawn)
+              - If fully loaded or player entity
+                - Check if vehicle is removed or doesn't have as passenger to force dismount
+                - Tick Entity (HOLY MOLY!?!?!?!)
+          - Tick Block Entities
+            - Add new block entity tickers to list
+            - For each block entity in list
+              - Check if removed and remove from list if so
+              - If block pos is at least lazy loaded
+                - Tick Block Entity
+                  - If not removed and has world and position is at least lazy loaded and block entity is valid in position
+                    - Tick block entity
+        - Tick Entity Manager
+          - Add newly loaded entities
+          - Remove newly unloaded entities
+  - Tick network IO `MinecraftServer.tickNetworkIo` to `ServerNetworkIo.tick()`
+    - For each connection
+      - If open `ClientConnection.isOpen()`
+        - Tick connection `ClientConnection.tick()`
+          - Send Queued Packets `ClientConnection.handleQueuedTasks()`
+          - Tick Network Handlers `TickablePacketListener.tick()`
+            - ServerPlayNetworkHandler(Normal network handler) `ServerPlayNetworkHandler.tick()`
+              - Block change acknowledgement `PlayerActionResponseS2CPacket`
+              - Set last tick position and updated position `ServerPlayNetworkHandler.syncWithPlayerPosition()`
+              - player prevX,Y and Z gets set
+              - playerTick `ServerPlayerEntity.playerTick()`
+                - If not spectator & not unloaded `ServerPlayerEntity.isSpectator()` & `ServerPlayerEntity.isRegionUnloaded()`
+                  - Base Player tick `PlayerEntity.tick()`
+                - Sync Map `ServerPlayerEntity.sendMapPacket()`
+                - Sync Health & Hunger `HealthUpdateS2CPacket`
+                - Update Scoreboards: `ServerPlayerEntity.updateScores()`
+                  - Health
+                  - Hunger
+                  - Air
+                  - Armor
+                  - XP
+                  - Level
+                - Sync XP bar `ExperienceBarUpdateS2CPacket`
+                - Trigger location based achievements `Criteria.LOCATION`
+              - Move player back to past position `Entity.updatePositionAndAngles`
+              - Increase tick count `ServerPlayNetworkHandler.ticks`
+              - Set last tick move packet count to current move packet count `ServerPlayNetworkHandler.lastTickMovePacketsCount` & `ServerPlayNetworkHandler.movePacketsCount`
+              - Handling flying kick
+              - Handling flying vehicle kick
+              - Handle keep alive/timeout kick `ServerCommonNetworkHandler.baseTick()`
+              - Tick message cooldown `Cooldown.tick()`
+              - Tick creative item drop cooldown `Cooldown.tick()`
+              - Handle player idle timeout `player-idle-timeout` in `server.properties`
+          - If connection closes or disconnected is set, disconnect `ClientConnection.handleDisconnection()`
+          - Flush channel `io.netty.channel.Channel.flush()`
+          - Every 20 ticks update stats `ClientConnection.updateStats()`
+          - Reset packet size logger `PacketSizeLogger.push()`
+  - Update player ping `PlayerManager.updatePlayerLatency()`
+  - If in dev mode tick tests `TestManager.tick()`
+  - Every second tick player list GUI `PlayerListGui.tick()`
+  - Send chunk data for each player `ChunkDataSender.sendChunkBatches()`
+- Update player list every 5 seconds `MinecraftServer.createMetadata()`
+- Tick autosave `MinecraftServer.runAutosave()`
