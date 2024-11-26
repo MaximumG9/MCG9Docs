@@ -1,4 +1,6 @@
 # Wandering Trader
+[**Back to page list**](../PAGES.md)
+
 Wandering traders are an entity that spawns randomly around a player.
 The wandering trader can be right clicked and it will offer to trade items.
 Its class name is `WanderingTraderEntity`. Its id is `minecraft:wandering_trader` and it uses custom spawning mechanics.
@@ -124,3 +126,7 @@ One of the following will be chosen as the last trade for the wandering trader
 | BLUE_ICE             | 6             | 1      | 6        |
 | GUNPOWDER            | 1             | 1      | 8        |
 | PODZOL               | 3             | 3      | 6        |
+
+### Please make suggestions for additions!
+
+[**Back to page list**](../PAGES.md)
