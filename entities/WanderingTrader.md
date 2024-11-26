@@ -32,7 +32,7 @@ Here is a description of the tick method of `WanderingTraderManager`, `Wandering
                   - Check that block allows spawning ([BPE List](https://joakimthorsen.github.io/MCPropertyEncyclopedia/?selection=variants,spawnable&filter=(spawnable:Polar%20Bear%20Only,Ocelots%20and%20Parrots%20Only,No,Fire-Immune%20Mobs%20Only)#))
                   - Check that blocks at feet and head are clear for spawning (Should never fail) `SpawnLocation.isSpawnPositionOk()`
                 - If spawn location is valid, return it
-                - If no valid spawn location is found return null
+              - If no valid spawn location is found return null
             - If spawn position is not null and \
               wandering trader would not suffocate there and \
               make sure the biome has wandering trader spawns: 
