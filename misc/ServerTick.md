@@ -1,7 +1,12 @@
+# Server Tick
+This represents the [Tick](./Tick.md) cycle on the server, the following is a list of the actions during `MinecraftServer.tick()`.
+There are actions repeated every tick that are not in this list because they are not in MinecraftServer.tick,
+this includes handling packets which happens before all of these.
+
 - Tick pause while empty `pause-when-empty-seconds` in `server.properties`
 - Tick tick manager (/tick command effects) `TickManager.step()`
 - Tick Worlds `MinecraftServer.tickWorlds()`
-  - Ticks command function manager
+  - Ticks load / tick functions manager `CommandFunctionManager.tick()`
   - For each world
     - Send time packets
     - Tick world
