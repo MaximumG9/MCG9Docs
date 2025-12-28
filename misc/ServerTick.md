@@ -1,97 +1,111 @@
 # Server Tick
 This represents the [Tick](./Tick.md) cycle on the server, the following is a list of the actions during `MinecraftServer.tick()`.
-There are actions repeated every tick that are not in this list because they are not in MinecraftServer.tick,
-this includes handling packets which happens before all of these.
+There are actions repeated every tick that are not in this list because they are not in `MinecraftServer.tick()`
+This includes handling packets and events from other threads which happen while waiting between ticks.
 
 - Tick pause while empty `pause-when-empty-seconds` in `server.properties`
 - Tick tick manager (/tick command effects) `TickManager.step()`
 - Tick Worlds `MinecraftServer.tickWorlds()`
   - Ticks load / tick functions manager `CommandFunctionManager.tick()`
-  - For each world
-    - Send time packets
-    - Tick world
-      - If not frozen
-        - Tick worldborder
-        - Tick weather
-      - Sleeping ticks
-      - Calculate thunder/rain darkness
-      - If not frozen
-        - Tick daylight cycle
-        - If not debug world
-          - Tick scheduled block ticks
-          - Tick scheduled fluid ticks
-        - Tick raids
-        - Tick ChunkManager
-          - If not frozen
-            - Remove expired tickets
-          - Update chunks
-            - Update TicketManager
-            - Update ChunkLoadingManager
-            - ChunkloadingManager update chunks
-          - Tick Chunks
-            - If not debug world
-              - If not frozen
-                - Add chunks to ticking chunk list
-                - Randomize chunk tick list (what the fuck???)
-                - Tick chunks in list
-                  - Tick mob spawning
-                  - Tick inhabited time (contributes to local difficulty)
-                  - Tick thunder & skeleton trap spawning
-                  - Tick ice and snow
-                  - Tick random block tocl
-                - Tick "special" mob spawning (i.e. Cats, Pillager Patrols, Phantoms, Wandering Traders & Zombie Sieges)
-            - Broadcast Chunk Updates
-              - Send light updates to players
-              - Send block changes to players
-              - Send block entity changes to players
-          - Tick Entity Trackers
-            - Update Entity Tracker status
-            - Send entity passengers
-            - Send map marker updates for item frames holding map
-            - Send entity rotation & position
-            - Send entity velocity data if constant velocity update entity
-            - Sync misc entity data
-            - Set head position
-            - Send velocity if modified
-          - Tick chunk loading manager
-            - Tick POI storage
-            - Unload chunks (async) and save them
-            - Initialized the chunk caches
-        - Handle syncedBlockEvents
-        - Check idle timeout (Stops entity ticking if there aren't any players in dimension for 15 seconds)
-        - If not idle:
-          - Tick dragon fight
-          - For each entity:
-            - If should be affected by /tick freeze & tick freeze enabled
-              - Check despawn (mob out of range/peaceful mode style despawn)
-              - If fully loaded or player entity
-                - Check if vehicle is removed or doesn't have as passenger to force dismount
-                - Tick Entity (HOLY MOLY!?!?!?!)
-          - Tick Block Entities
-            - Add new block entity tickers to list
-            - For each block entity in list
-              - Check if removed and remove from list if so
-              - If block pos is at least lazy loaded
-                - Tick Block Entity
-                  - If not removed and has world and position is at least lazy loaded and block entity is valid in position
-                    - Tick block entity
-        - Tick Entity Manager
-          - Add newly loaded entities
-          - Remove newly unloaded entities
-  - Tick network IO `MinecraftServer.tickNetworkIo` to `ServerNetworkIo.tick()`
+  - For each world `MinecraftServer.getWorlds()`
+    - Send time packets `MinecraftServer.sendTimeUpdatePackets()`
+    - Tick world `ServerWorld.tick()`
+      - If not frozen `TickManager.shouldTick()`
+        - Tick worldborder `WorldBorder.tick()`
+        - Tick weather `ServerWorld.tickWeather()`
+      - Sleeping ticks ``
+      - Calculate thunder/rain darkness `ServerWorld.calculateAmbientDarkness()`
+      - If not frozen `TickManager.shouldTick()`
+        - Tick daylight cycle `ServerWorld.tickTime()`
+        - If not debug world `ServerWorld.isDebugWorld()`
+          - Tick scheduled block ticks `WorldTickScheduler.tick()` && `ServerWorld.tickBlock()`
+          - Tick scheduled fluid ticks `WorldTickScheduler.tick()` && `ServerWorld.tickFluid()`
+        - Tick raids `RaidManager.tick()`
+        - Tick ChunkManager `ServerChunkManager.tick()`
+          - If not frozen `TickManager.shouldTick()`
+            - Remove expired tickets `ChunkTicketManager.purge()`
+              - Propagate loadedness levels `ChunkPosDistanceLevelPropagator.updateLevel()`
+          - Update chunks `ServerChunkManager.updateChunks()`
+            - Update TicketManager `ChunkTicketManager.update()`
+            - Update ChunkLoadingManager `ChunkLoadingManager.updateHolderMap()`
+            - ChunkloadingManager update chunks `ChunkLoadingManager.updateChunks()`
+            - If any changes have been made clear chunk caches `ServerChunkManager.initChunkCaches()`
+          - Tick Chunks `ServerChunkManager.tickChunks()`
+            - If not debug world `ServerWorld.isDebugWorld()`
+              - Add chunks to ticking chunk list `ServerChunkLoadingManager.entryIterator()`
+              - If not frozen `TickManager.shouldTick()`
+                - Randomize chunk tick list with `ServerWorld.random` && `Util.shuffle()`
+                - For all chunks in list
+                  - If chunk should be ticked `ServerWorld.shouldTick()` && `ChunkLoadingManager.shouldTick()`
+                    - Tick inhabited time (contributes to local difficulty) `WorldChunk.increaseInhabitedTime()`
+                    - Tick mob spawning `SpawnHelper.spawn()`
+                    - If blocks should be ticked `ServerWorld.shouldTickBlocksInChunk()`
+                      - Tick Chunk `ServerWorld.tickChunk()`
+                        - Summon lighting with 1 in 100000 chance `ServerWorld.random` && `Random.nextInt()`
+                          - With local difficulty in 100 chance & no lightning rod summon Skeleton Horse Trap `ServerWorld.random` && `Random.nextDouble()` && `LocalDifficulty.getLocalDifficulty()`
+                        - Repeat random tick speed times:
+                          - With 1 in 48 chance `ServerWorld.random` && `Random.nextInt()`
+                            - Tick ice/snow `ServerWorld.tickIceAndSnow()`
+                        - Tick random block tick `BlockState.randomTick()` / `FluidState.onRandomTick()`
+                - Tick "special" mob spawning (i.e. Cats, Pillager Patrols, Phantoms, [Wandering Traders](../entities/WanderingTrader.md#spawning) & Zombie Sieges) `ServerWorld.tickSpawners()`
+            - Broadcast Chunk Updates `ChunkHolder.flushUpdates()`
+              - Send light updates to players `LightUpdateS2CPacket::new` && `ChunkHolder.sendPacketToPlayers()`
+              - Send block changes to players `BlockUpdateS2CPacket::new` || `ChunkDeltaUpdateS2CPacket::new` && `ChunkHolder.sendPacketToPlayers()`
+              - Send block entity changes to players `ChunkHolder.tryUpdateBlockEntityAt()`
+          - Tick Loading Changes `ServerChunkLoadingManager.tickEntityMovement()`
+            - Update seen chunks `ServerChunkLoadingManager.sendWatchPackets()`
+            - For Each Entity Tracker
+              - Update Entity Tracker status if moved between chunk sections `EntityTrackerEntry.updateTrackedStatus()` && `EntityTrackerEntry.trackedSection`
+              - If is a player who moved between chunk sections, add to a list `EntityTrackerEntry.trackedSection`
+              - Tick Entity Tracker `EntityTrackerEntry.tick()`
+                - Send entity passengers 
+                - Send map marker updates for item frames holding map
+                - Send entity rotation & position
+                - Send entity velocity data if constant velocity update entity
+                - Sync misc entity data
+                - Set head position
+                - Send velocity if modified
+            - Iterate through all moved players and update all entity trackers with new player location `EntityTrackerEntry.updateTrackedStatus()`
+          - Tick chunk loading manager `ServerChunkLoadingManager.tick()`
+            - Tick POI storage `PointOfInterestStorage.tick()`
+            - Unload chunks and save them `ServerChunkLoadingManager.unloadChunks()`
+          - Initialize the chunk caches `ServerChunkManager.initChunkCaches()`
+        - Handle syncedBlockEvents `ServerWorld.processSyncedBlockEvents()`
+        - Reset idle timeout if there are any players in world or force loaded chunks `ServerWorld.players` && `ServerWorld.getForcedChunks()` && `ServerWorld.resetIdleTimeout()`
+        - If not idle: `ServerWorld.idleTimeout`
+          - Tick dragon fight `EnderDragonFight.tick()`
+          - For each entity: `ServerWorld.entityList`
+            - If should be affected by /tick freeze & tick freeze enabled `TickManager.shouldSkipTick()`
+              - Check despawn (mob out of range/peaceful mode style despawn) `Entity.checkDespawn()`
+              - If fully loaded or player entity `ChunkTicketManager.shouldTickEntities()`
+                - Check if entity's vehicle is removed or doesn't have as passenger and if so dismount `Entity.isRemoved()` && `Entity.hasPassenger()` && `Entity.stopRiding()`
+                - Tick Entity `ServerWorld.tickEntity()` (both of the `tickEntity()`s)
+          - Tick Block Entities `World.tickBlockEntities`
+            - Add new block entity tickers to list `World.pendingBlockEntityTickers` `World.blockEntityTickers`
+            - For each block entity in list `World.blockEntityTickers`
+              - Check if removed and remove from list if so `BlockEntityTickInvoker.isRemoved()`
+              - If not frozen and block pos is at least lazy loaded `World.shouldTickBlockPos()` `TickManager.shouldTick()`
+                - Tick Block Entity `DirectBlockEntityTickInvoker.tick()`
+                  - If not removed & has world & position is >lazy loaded & block entity is valid in position
+                    `BlockEntity.isRemoved()` && `BlockEntity.hasWorld()` && `WorldChunk.canTickBlockEntity()` && `BlockEntityType.supports()`
+                    - Tick block entity `BlockEntityTicker.tick()`
+        - Tick Entity Manager `ServerEntityManager.tick()`
+          - Add newly loaded entities `ServerEntityManager.loadChunks()`
+          - Unload entities in newly unloaded chunks `ServerEntityManager.unloadChunks()`
+  - Tick network IO `ServerNetworkIo.tick()`
     - For each connection
       - If open `ClientConnection.isOpen()`
         - Tick connection `ClientConnection.tick()`
           - Send Queued Packets `ClientConnection.handleQueuedTasks()`
           - Tick Network Handlers `TickablePacketListener.tick()`
             - ServerPlayNetworkHandler(Normal network handler) `ServerPlayNetworkHandler.tick()`
-              - Block change acknowledgement `PlayerActionResponseS2CPacket`
+              - Block change action acknowledgement `PlayerActionResponseS2CPacket` && `ServerPlayNetworkHandler.sequence`
               - Set last tick position and updated position `ServerPlayNetworkHandler.syncWithPlayerPosition()`
-              - player prevX,Y and Z gets set
+              - player prevX,Y and Z gets set `ServerPlayerEntity.prev(x/y/z)` && `ServerPlayerEntity.get(X/Y/Z)`
               - playerTick `ServerPlayerEntity.playerTick()`
-                - If not spectator & not unloaded `ServerPlayerEntity.isSpectator()` & `ServerPlayerEntity.isRegionUnloaded()`
+                - If not spectator & not unloaded `ServerPlayerEntity.isSpectator()` && `ServerPlayerEntity.isRegionUnloaded()`
                   - Base Player tick `PlayerEntity.tick()`
-                - Sync Map `ServerPlayerEntity.sendMapPacket()`
+                - Sync Map (NetworkSyncedItem) `NetworkSyncedItem.createSyncPacket()`
                 - Sync Health & Hunger `HealthUpdateS2CPacket`
                 - Update Scoreboards: `ServerPlayerEntity.updateScores()`
                   - Health
@@ -100,24 +114,25 @@ this includes handling packets which happens before all of these.
                   - Armor
                   - XP
                   - Level
-                - Sync XP bar `ExperienceBarUpdateS2CPacket`
-                - Trigger location based achievements `Criteria.LOCATION`
-              - Move player back to past position `Entity.updatePositionAndAngles`
+                - Sync XP bar `ExperienceBarUpdateS2CPacket::new`
+                - tickCount % 20 == 0: Trigger location based achievements `Criteria.LOCATION` `TickCriterion.trigger()`
+              - Move player back to last sent position `Entity.updatePositionAndAngles`
               - Increase tick count `ServerPlayNetworkHandler.ticks`
               - Set last tick move packet count to current move packet count `ServerPlayNetworkHandler.lastTickMovePacketsCount` & `ServerPlayNetworkHandler.movePacketsCount`
               - Handling flying kick
               - Handling flying vehicle kick
               - Handle keep alive/timeout kick `ServerCommonNetworkHandler.baseTick()`
-              - Tick message cooldown `Cooldown.tick()`
-              - Tick creative item drop cooldown `Cooldown.tick()`
-              - Handle player idle timeout `player-idle-timeout` in `server.properties`
+              - Tick message cooldown `ServerPlayNetworkHandler.messageCooldown`
+              - Tick creative item drop cooldown `ServerPlayNetworkHandler.creativeItemDropThreshold`
+              - Handle player idle timeout (`player-idle-timeout` in `server.properties`)
           - If connection closes or disconnected is set, disconnect `ClientConnection.handleDisconnection()`
-          - Flush channel `io.netty.channel.Channel.flush()`
-          - Every 20 ticks update stats `ClientConnection.updateStats()`
-          - Reset packet size logger `PacketSizeLogger.push()`
+          - Flush channel (send packets) `io.netty.channel.Channel.flush()`
+          - Every 20 ticks update network statistics `ClientConnection.updateStats()`
+          - Update packet size logger `PacketSizeLogger.push()`
   - Update player ping `PlayerManager.updatePlayerLatency()`
-  - If in dev mode tick tests `TestManager.tick()`
-  - Every second tick player list GUI `PlayerListGui.tick()`
-  - Send chunk data for each player `ChunkDataSender.sendChunkBatches()`
+  - If in development and not frozen: tick tests `SharedConstants.isDevelopment` && `TickManager.shouldTick()` && `TestManager.tick()`
+  - Every 20 ticks update player list GUI (dedicated server) `PlayerListGui.tick()`
+  - Send chunk data batches for each player `ChunkDataSender.sendChunkBatches()`
 - Update player list every 5 seconds `MinecraftServer.createMetadata()`
-- Tick autosave `MinecraftServer.runAutosave()`
+- Tick autosave `MinecraftServer.saveAll()`
+- Update tick timings
