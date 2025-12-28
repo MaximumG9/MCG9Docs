@@ -1,5 +1,5 @@
 # G9Docs
-Hello, and welcome to MaximumG9's minecraft documentation.
+Hello, and welcome to MaximumG9's minecraft documentation for 1.21.0.
 The point of this is to provide useful information for any technical players or anyone who needs and technical
 knowledge of the game.
 
