@@ -13,7 +13,7 @@ This includes handling packets and events from other threads which happen while 
       - If not frozen `TickManager.shouldTick()`
         - Tick worldborder `WorldBorder.tick()`
         - Tick weather `ServerWorld.tickWeather()`
-      - Sleeping ticks ``
+      - Sleeping ticks `ServerWorld.sleepManager` && `SleepManager.canSkipNight()` && `SleepManager.canResetTime()`
       - Calculate thunder/rain darkness `ServerWorld.calculateAmbientDarkness()`
       - If not frozen `TickManager.shouldTick()`
         - Tick daylight cycle `ServerWorld.tickTime()`
